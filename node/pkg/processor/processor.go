@@ -89,7 +89,6 @@ type Processor struct {
 	// devnetMode specified whether to submit transactions to the hardcoded Ethereum devnet
 	devnetMode         bool
 	devnetNumGuardians uint
-	devnetEthRPC       string
 
 	attestationEvents *reporter.AttestationEventReporter
 
@@ -129,7 +128,6 @@ func NewProcessor(
 	gst *common.GuardianSetState,
 	devnetMode bool,
 	devnetNumGuardians uint,
-	devnetEthRPC string,
 	attestationEvents *reporter.AttestationEventReporter,
 	notifier *discord.DiscordNotifier,
 	g *governor.ChainGovernor,
@@ -146,7 +144,6 @@ func NewProcessor(
 		gst:                gst,
 		devnetMode:         devnetMode,
 		devnetNumGuardians: devnetNumGuardians,
-		devnetEthRPC:       devnetEthRPC,
 		db:                 db,
 
 		attestationEvents: attestationEvents,

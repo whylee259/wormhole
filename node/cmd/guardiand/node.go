@@ -5,21 +5,17 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"github.com/certusone/wormhole/node/pkg/db"
+	"github.com/certusone/wormhole/node/pkg/notify/discord"
+	"github.com/certusone/wormhole/node/pkg/telemetry"
+	"github.com/certusone/wormhole/node/pkg/version"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"net/http"
 	_ "net/http/pprof" // #nosec G108 we are using a custom router (`router := mux.NewRouter()`) and thus not automatically expose pprof.
 	"os"
 	"path"
-	"strings"
 
-	"github.com/certusone/wormhole/node/pkg/db"
-	"github.com/certusone/wormhole/node/pkg/notify/discord"
-	"github.com/certusone/wormhole/node/pkg/telemetry"
-	"github.com/certusone/wormhole/node/pkg/version"
-	"github.com/gagliardetto/solana-go/rpc"
-	"go.uber.org/zap/zapcore"
-
-	solana_types "github.com/gagliardetto/solana-go"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -32,7 +28,6 @@ import (
 	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
 	"github.com/certusone/wormhole/node/pkg/readiness"
 	"github.com/certusone/wormhole/node/pkg/reporter"
-	solana "github.com/certusone/wormhole/node/pkg/solana"
 	"github.com/certusone/wormhole/node/pkg/supervisor"
 	"github.com/certusone/wormhole/node/pkg/vaa"
 	eth_common "github.com/ethereum/go-ethereum/common"
@@ -41,11 +36,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-
-	cosmwasm "github.com/certusone/wormhole/node/pkg/terra"
-
-	"github.com/certusone/wormhole/node/pkg/algorand"
-	"github.com/certusone/wormhole/node/pkg/near"
 
 	ipfslog "github.com/ipfs/go-log/v2"
 )
@@ -64,77 +54,9 @@ var (
 	statusAddr *string
 
 	guardianKeyPath *string
-	solanaContract  *string
-
-	ethRPC      *string
-	ethContract *string
-
-	bscRPC      *string
-	bscContract *string
-
-	polygonRPC      *string
-	polygonContract *string
-
-	ethRopstenRPC      *string
-	ethRopstenContract *string
-
-	auroraRPC      *string
-	auroraContract *string
-
-	fantomRPC      *string
-	fantomContract *string
-
-	avalancheRPC      *string
-	avalancheContract *string
-
-	oasisRPC      *string
-	oasisContract *string
-
-	karuraRPC      *string
-	karuraContract *string
-
-	acalaRPC      *string
-	acalaContract *string
 
 	klaytnRPC      *string
 	klaytnContract *string
-
-	celoRPC      *string
-	celoContract *string
-
-	moonbeamRPC      *string
-	moonbeamContract *string
-
-	neonRPC      *string
-	neonContract *string
-
-	terraWS       *string
-	terraLCD      *string
-	terraContract *string
-
-	terra2WS       *string
-	terra2LCD      *string
-	terra2Contract *string
-
-	injectiveWS       *string
-	injectiveLCD      *string
-	injectiveContract *string
-
-	algorandIndexerRPC   *string
-	algorandIndexerToken *string
-	algorandAlgodRPC     *string
-	algorandAlgodToken   *string
-	algorandAppID        *uint64
-
-	nearRPC      *string
-	nearContract *string
-
-	solanaWsRPC *string
-	solanaRPC   *string
-
-	pythnetContract *string
-	pythnetWsRPC    *string
-	pythnetRPC      *string
 
 	logLevel *string
 
@@ -181,77 +103,9 @@ func init() {
 	dataDir = NodeCmd.Flags().String("dataDir", "", "Data directory")
 
 	guardianKeyPath = NodeCmd.Flags().String("guardianKey", "", "Path to guardian key (required)")
-	solanaContract = NodeCmd.Flags().String("solanaContract", "", "Address of the Solana program (required)")
-
-	ethRPC = NodeCmd.Flags().String("ethRPC", "", "Ethereum RPC URL")
-	ethContract = NodeCmd.Flags().String("ethContract", "", "Ethereum contract address")
-
-	bscRPC = NodeCmd.Flags().String("bscRPC", "", "Binance Smart Chain RPC URL")
-	bscContract = NodeCmd.Flags().String("bscContract", "", "Binance Smart Chain contract address")
-
-	polygonRPC = NodeCmd.Flags().String("polygonRPC", "", "Polygon RPC URL")
-	polygonContract = NodeCmd.Flags().String("polygonContract", "", "Polygon contract address")
-
-	ethRopstenRPC = NodeCmd.Flags().String("ethRopstenRPC", "", "Ethereum Ropsten RPC URL")
-	ethRopstenContract = NodeCmd.Flags().String("ethRopstenContract", "", "Ethereum Ropsten contract address")
-
-	avalancheRPC = NodeCmd.Flags().String("avalancheRPC", "", "Avalanche RPC URL")
-	avalancheContract = NodeCmd.Flags().String("avalancheContract", "", "Avalanche contract address")
-
-	oasisRPC = NodeCmd.Flags().String("oasisRPC", "", "Oasis RPC URL")
-	oasisContract = NodeCmd.Flags().String("oasisContract", "", "Oasis contract address")
-
-	auroraRPC = NodeCmd.Flags().String("auroraRPC", "", "Aurora Websocket RPC URL")
-	auroraContract = NodeCmd.Flags().String("auroraContract", "", "Aurora contract address")
-
-	fantomRPC = NodeCmd.Flags().String("fantomRPC", "", "Fantom Websocket RPC URL")
-	fantomContract = NodeCmd.Flags().String("fantomContract", "", "Fantom contract address")
-
-	karuraRPC = NodeCmd.Flags().String("karuraRPC", "", "Karura RPC URL")
-	karuraContract = NodeCmd.Flags().String("karuraContract", "", "Karura contract address")
-
-	acalaRPC = NodeCmd.Flags().String("acalaRPC", "", "Acala RPC URL")
-	acalaContract = NodeCmd.Flags().String("acalaContract", "", "Acala contract address")
 
 	klaytnRPC = NodeCmd.Flags().String("klaytnRPC", "", "Klaytn RPC URL")
 	klaytnContract = NodeCmd.Flags().String("klaytnContract", "", "Klaytn contract address")
-
-	celoRPC = NodeCmd.Flags().String("celoRPC", "", "Celo RPC URL")
-	celoContract = NodeCmd.Flags().String("celoContract", "", "Celo contract address")
-
-	moonbeamRPC = NodeCmd.Flags().String("moonbeamRPC", "", "Moonbeam RPC URL")
-	moonbeamContract = NodeCmd.Flags().String("moonbeamContract", "", "Moonbeam contract address")
-
-	neonRPC = NodeCmd.Flags().String("neonRPC", "", "Neon RPC URL")
-	neonContract = NodeCmd.Flags().String("neonContract", "", "Neon contract address")
-
-	terraWS = NodeCmd.Flags().String("terraWS", "", "Path to terrad root for websocket connection")
-	terraLCD = NodeCmd.Flags().String("terraLCD", "", "Path to LCD service root for http calls")
-	terraContract = NodeCmd.Flags().String("terraContract", "", "Wormhole contract address on Terra blockchain")
-
-	terra2WS = NodeCmd.Flags().String("terra2WS", "", "Path to terrad root for websocket connection")
-	terra2LCD = NodeCmd.Flags().String("terra2LCD", "", "Path to LCD service root for http calls")
-	terra2Contract = NodeCmd.Flags().String("terra2Contract", "", "Wormhole contract address on Terra 2 blockchain")
-
-	injectiveWS = NodeCmd.Flags().String("injectiveWS", "", "Path to root for Injective websocket connection")
-	injectiveLCD = NodeCmd.Flags().String("injectiveLCD", "", "Path to LCD service root for Injective http calls")
-	injectiveContract = NodeCmd.Flags().String("injectiveContract", "", "Wormhole contract address on Injective blockchain")
-
-	algorandIndexerRPC = NodeCmd.Flags().String("algorandIndexerRPC", "", "Algorand Indexer RPC URL")
-	algorandIndexerToken = NodeCmd.Flags().String("algorandIndexerToken", "", "Algorand Indexer access token")
-	algorandAlgodRPC = NodeCmd.Flags().String("algorandAlgodRPC", "", "Algorand Algod RPC URL")
-	algorandAlgodToken = NodeCmd.Flags().String("algorandAlgodToken", "", "Algorand Algod access token")
-	algorandAppID = NodeCmd.Flags().Uint64("algorandAppID", 0, "Algorand app id")
-
-	nearRPC = NodeCmd.Flags().String("nearRPC", "", "near RPC URL")
-	nearContract = NodeCmd.Flags().String("nearContract", "", "near contract")
-
-	solanaWsRPC = NodeCmd.Flags().String("solanaWS", "", "Solana Websocket URL (required")
-	solanaRPC = NodeCmd.Flags().String("solanaRPC", "", "Solana RPC URL (required")
-
-	pythnetContract = NodeCmd.Flags().String("pythnetContract", "", "Address of the PythNet program (required)")
-	pythnetWsRPC = NodeCmd.Flags().String("pythnetWS", "", "PythNet Websocket URL (required")
-	pythnetRPC = NodeCmd.Flags().String("pythnetRPC", "", "PythNet RPC URL (required")
 
 	logLevel = NodeCmd.Flags().String("logLevel", "info", "Logging level (debug, info, warn, error, dpanic, panic, fatal)")
 
@@ -370,41 +224,7 @@ func runNode(cmd *cobra.Command, args []string) {
 
 	// Register components for readiness checks.
 	readiness.RegisterComponent(common.ReadinessEthSyncing)
-	if *solanaWsRPC != "" {
-		readiness.RegisterComponent(common.ReadinessSolanaSyncing)
-	}
-	if *pythnetWsRPC != "" {
-		readiness.RegisterComponent(common.ReadinessPythNetSyncing)
-	}
-	if *terraWS != "" {
-		readiness.RegisterComponent(common.ReadinessTerraSyncing)
-	}
-	if *terra2WS != "" {
-		readiness.RegisterComponent(common.ReadinessTerra2Syncing)
-	}
-	if *algorandIndexerRPC != "" {
-		readiness.RegisterComponent(common.ReadinessAlgorandSyncing)
-	}
-	if *nearRPC != "" {
-		readiness.RegisterComponent(common.ReadinessNearSyncing)
-	}
-	readiness.RegisterComponent(common.ReadinessBSCSyncing)
-	readiness.RegisterComponent(common.ReadinessPolygonSyncing)
-	readiness.RegisterComponent(common.ReadinessAvalancheSyncing)
-	readiness.RegisterComponent(common.ReadinessOasisSyncing)
-	readiness.RegisterComponent(common.ReadinessAuroraSyncing)
-	readiness.RegisterComponent(common.ReadinessFantomSyncing)
-	readiness.RegisterComponent(common.ReadinessKaruraSyncing)
-	readiness.RegisterComponent(common.ReadinessAcalaSyncing)
 	readiness.RegisterComponent(common.ReadinessKlaytnSyncing)
-	readiness.RegisterComponent(common.ReadinessCeloSyncing)
-
-	if *testnetMode {
-		readiness.RegisterComponent(common.ReadinessEthRopstenSyncing)
-		readiness.RegisterComponent(common.ReadinessMoonbeamSyncing)
-		readiness.RegisterComponent(common.ReadinessNeonSyncing)
-		readiness.RegisterComponent(common.ReadinessInjectiveSyncing)
-	}
 
 	if *statusAddr != "" {
 		// Use a custom routing instead of using http.DefaultServeMux directly to avoid accidentally exposing packages
@@ -443,19 +263,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		*p2pBootstrap = fmt.Sprintf("/dns4/guardian-0.guardian/udp/%d/quic/p2p/%s", *p2pPort, g0key.String())
 
 		// Deterministic ganache ETH devnet address.
-		*ethContract = devnet.GanacheWormholeContractAddress.Hex()
-		*bscContract = devnet.GanacheWormholeContractAddress.Hex()
-		*polygonContract = devnet.GanacheWormholeContractAddress.Hex()
-		*avalancheContract = devnet.GanacheWormholeContractAddress.Hex()
-		*oasisContract = devnet.GanacheWormholeContractAddress.Hex()
-		*auroraContract = devnet.GanacheWormholeContractAddress.Hex()
-		*fantomContract = devnet.GanacheWormholeContractAddress.Hex()
-		*karuraContract = devnet.GanacheWormholeContractAddress.Hex()
-		*acalaContract = devnet.GanacheWormholeContractAddress.Hex()
 		*klaytnContract = devnet.GanacheWormholeContractAddress.Hex()
-		*celoContract = devnet.GanacheWormholeContractAddress.Hex()
-		*moonbeamContract = devnet.GanacheWormholeContractAddress.Hex()
-		*neonContract = devnet.GanacheWormholeContractAddress.Hex()
 	}
 
 	// Verify flags
@@ -472,202 +280,14 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *dataDir == "" {
 		logger.Fatal("Please specify --dataDir")
 	}
-	if *ethRPC == "" {
-		logger.Fatal("Please specify --ethRPC")
-	}
-	if *ethContract == "" {
-		logger.Fatal("Please specify --ethContract")
-	}
-	if *bscRPC == "" {
-		logger.Fatal("Please specify --bscRPC")
-	}
-	if *bscContract == "" {
-		logger.Fatal("Please specify --bscContract")
-	}
-	if *polygonRPC == "" {
-		logger.Fatal("Please specify --polygonRPC")
-	}
-	if *polygonContract == "" {
-		logger.Fatal("Please specify --polygonContract")
-	}
-	if *avalancheRPC == "" {
-		logger.Fatal("Please specify --avalancheRPC")
-	}
-	if *oasisRPC == "" {
-		logger.Fatal("Please specify --oasisRPC")
-	}
-	if *fantomRPC == "" {
-		logger.Fatal("Please specify --fantomRPC")
-	}
-	if *fantomContract == "" && !*unsafeDevMode {
-		logger.Fatal("Please specify --fantomContract")
-	}
-	if *auroraRPC == "" {
-		logger.Fatal("Please specify --auroraRPC")
-	}
-	if *auroraContract == "" && !*unsafeDevMode {
-		logger.Fatal("Please specify --auroraContract")
-	}
-	if *karuraRPC == "" {
-		logger.Fatal("Please specify --karuraRPC")
-	}
-	if *karuraContract == "" && !*unsafeDevMode {
-		logger.Fatal("Please specify --karuraContract")
-	}
-	if *acalaRPC == "" {
-		logger.Fatal("Please specify --acalaRPC")
-	}
-	if *acalaContract == "" && !*unsafeDevMode {
-		logger.Fatal("Please specify --acalaContract")
-	}
 	if *klaytnRPC == "" {
 		logger.Fatal("Please specify --klaytnRPC")
 	}
 	if *klaytnContract == "" && !*unsafeDevMode {
 		logger.Fatal("Please specify --klaytnContract")
 	}
-	if *celoRPC == "" {
-		logger.Fatal("Please specify --celoRPC")
-	}
-	if *celoContract == "" && !*unsafeDevMode {
-		logger.Fatal("Please specify --celoContract")
-	}
-	if *testnetMode || *unsafeDevMode {
-		if *nearRPC != "" {
-			if *nearContract == "" {
-				logger.Fatal("If --nearRPC is specified, then --nearContract must be specified")
-			}
-		} else if *nearContract != "" {
-			logger.Fatal("If --nearContract is specified, then --nearRPC must be specified")
-		}
-	}
-	if *testnetMode {
-		if *ethRopstenRPC == "" {
-			logger.Fatal("Please specify --ethRopstenRPC")
-		}
-		if *ethRopstenContract == "" {
-			logger.Fatal("Please specify --ethRopstenContract")
-		}
-		if *moonbeamRPC == "" {
-			logger.Fatal("Please specify --moonbeamRPC")
-		}
-		if *moonbeamContract == "" {
-			logger.Fatal("Please specify --moonbeamContract")
-		}
-		if *neonRPC == "" {
-			logger.Fatal("Please specify --neonRPC")
-		}
-		if *neonContract == "" {
-			logger.Fatal("Please specify --neonContract")
-		}
-		if *injectiveWS == "" {
-			logger.Fatal("Please specify --injectiveWS")
-		}
-		if *injectiveLCD == "" {
-			logger.Fatal("Please specify --injectiveLCD")
-		}
-		if *injectiveContract == "" {
-			logger.Fatal("Please specify --injectiveContract")
-		}
-	} else {
-		if *ethRopstenRPC != "" {
-			logger.Fatal("Please do not specify --ethRopstenRPC in non-testnet mode")
-		}
-		if *ethRopstenContract != "" {
-			logger.Fatal("Please do not specify --ethRopstenContract in non-testnet mode")
-		}
-		if *moonbeamRPC != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --moonbeamRPC")
-		}
-		if *moonbeamContract != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --moonbeamContract")
-		}
-		if *neonRPC != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --neonRPC")
-		}
-		if *neonContract != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --neonContract")
-		}
-		if *injectiveWS != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --injectiveWS")
-		}
-		if *injectiveLCD != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --injectiveLCD")
-		}
-		if *injectiveContract != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --injectiveContract")
-		}
-		if *nearRPC != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --nearRPC")
-		}
-		if *nearContract != "" && !*unsafeDevMode {
-			logger.Fatal("Please do not specify --nearContract")
-		}
-	}
 	if *nodeName == "" {
 		logger.Fatal("Please specify --nodeName")
-	}
-
-	// Solana, Terra Classic, Terra 2, and Algorand are optional in devnet
-	if !*unsafeDevMode {
-
-		if *solanaContract == "" {
-			logger.Fatal("Please specify --solanaContract")
-		}
-		if *solanaWsRPC == "" {
-			logger.Fatal("Please specify --solanaWsUrl")
-		}
-		if *solanaRPC == "" {
-			logger.Fatal("Please specify --solanaUrl")
-		}
-
-		if *terraWS == "" {
-			logger.Fatal("Please specify --terraWS")
-		}
-		if *terraLCD == "" {
-			logger.Fatal("Please specify --terraLCD")
-		}
-		if *terraContract == "" {
-			logger.Fatal("Please specify --terraContract")
-		}
-
-		if *terra2WS == "" {
-			logger.Fatal("Please specify --terra2WS")
-		}
-		if *terra2LCD == "" {
-			logger.Fatal("Please specify --terra2LCD")
-		}
-		if *terra2Contract == "" {
-			logger.Fatal("Please specify --terra2Contract")
-		}
-
-		if *testnetMode {
-			if *algorandIndexerRPC == "" {
-				logger.Fatal("Please specify --algorandIndexerRPC")
-			}
-			if *algorandIndexerToken == "" {
-				logger.Fatal("Please specify --algorandIndexerToken")
-			}
-			if *algorandAlgodRPC == "" {
-				logger.Fatal("Please specify --algorandAlgodRPC")
-			}
-			if *algorandAlgodToken == "" {
-				logger.Fatal("Please specify --algorandAlgodToken")
-			}
-			if *algorandAppID == 0 {
-				logger.Fatal("Please specify --algorandAppID")
-			}
-
-			if *pythnetContract == "" {
-				logger.Fatal("Please specify --pythnetContract")
-			}
-			if *pythnetWsRPC == "" {
-				logger.Fatal("Please specify --pythnetWsUrl")
-			}
-			if *pythnetRPC == "" {
-				logger.Fatal("Please specify --pythnetUrl")
-			}
-		}
 	}
 
 	if *bigTablePersistenceEnabled {
@@ -688,54 +308,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Complain about Infura on mainnet.
-	//
-	// As it turns out, Infura has a bug where it would sometimes incorrectly round
-	// block timestamps, which causes consensus issues - the timestamp is part of
-	// the VAA and nodes using Infura would sometimes derive an incorrect VAA,
-	// accidentally attacking the network by signing a conflicting VAA.
-	//
-	// Node operators do not usually rely on Infura in the first place - doing
-	// so is insecure, since nodes blindly trust the connected nodes to verify
-	// on-chain message proofs. However, node operators sometimes used
-	// Infura during migrations where their primary node was offline, causing
-	// the aforementioned consensus oddities which were eventually found to
-	// be Infura-related. This is generally to the detriment of network security
-	// and a judgement call made by individual operators. In the case of Infura,
-	// we know it's actively dangerous so let's make an opinionated argument.
-	//
-	// Insert "I'm a sign, not a cop" meme.
-	//
-	if strings.Contains(*ethRPC, "mainnet.infura.io") ||
-		strings.Contains(*polygonRPC, "polygon-mainnet.infura.io") {
-		logger.Fatal("Infura is known to send incorrect blocks - please use your own nodes")
-	}
-
-	ethContractAddr := eth_common.HexToAddress(*ethContract)
-	bscContractAddr := eth_common.HexToAddress(*bscContract)
-	polygonContractAddr := eth_common.HexToAddress(*polygonContract)
-	ethRopstenContractAddr := eth_common.HexToAddress(*ethRopstenContract)
-	avalancheContractAddr := eth_common.HexToAddress(*avalancheContract)
-	oasisContractAddr := eth_common.HexToAddress(*oasisContract)
-	auroraContractAddr := eth_common.HexToAddress(*auroraContract)
-	fantomContractAddr := eth_common.HexToAddress(*fantomContract)
-	karuraContractAddr := eth_common.HexToAddress(*karuraContract)
-	acalaContractAddr := eth_common.HexToAddress(*acalaContract)
 	klaytnContractAddr := eth_common.HexToAddress(*klaytnContract)
-	celoContractAddr := eth_common.HexToAddress(*celoContract)
-	moonbeamContractAddr := eth_common.HexToAddress(*moonbeamContract)
-	neonContractAddr := eth_common.HexToAddress(*neonContract)
-	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
-	if err != nil {
-		logger.Fatal("invalid Solana contract address", zap.Error(err))
-	}
-	var pythnetAddress solana_types.PublicKey
-	if *testnetMode {
-		pythnetAddress, err = solana_types.PublicKeyFromBase58(*pythnetContract)
-		if err != nil {
-			logger.Fatal("invalid PythNet contract address", zap.Error(err))
-		}
-	}
 
 	// In devnet mode, we generate a deterministic guardian key and write it to disk.
 	if *unsafeDevMode {
@@ -808,33 +381,8 @@ func runNode(cmd *cobra.Command, args []string) {
 	chainObsvReqC := make(map[vaa.ChainID]chan *gossipv1.ObservationRequest)
 
 	// Observation request channel for each chain supporting observation requests.
-	chainObsvReqC[vaa.ChainIDSolana] = make(chan *gossipv1.ObservationRequest)
 	chainObsvReqC[vaa.ChainIDEthereum] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDTerra] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDTerra2] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDBSC] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDPolygon] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDAvalanche] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDOasis] = make(chan *gossipv1.ObservationRequest)
-	if *testnetMode || *unsafeDevMode {
-		chainObsvReqC[vaa.ChainIDAlgorand] = make(chan *gossipv1.ObservationRequest)
-	}
-	if *nearRPC != "" {
-		chainObsvReqC[vaa.ChainIDNear] = make(chan *gossipv1.ObservationRequest)
-	}
-	chainObsvReqC[vaa.ChainIDAurora] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDFantom] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDKarura] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDAcala] = make(chan *gossipv1.ObservationRequest)
 	chainObsvReqC[vaa.ChainIDKlaytn] = make(chan *gossipv1.ObservationRequest)
-	chainObsvReqC[vaa.ChainIDCelo] = make(chan *gossipv1.ObservationRequest)
-	if *testnetMode {
-		chainObsvReqC[vaa.ChainIDMoonbeam] = make(chan *gossipv1.ObservationRequest)
-		chainObsvReqC[vaa.ChainIDNeon] = make(chan *gossipv1.ObservationRequest)
-		chainObsvReqC[vaa.ChainIDEthereumRopsten] = make(chan *gossipv1.ObservationRequest)
-		chainObsvReqC[vaa.ChainIDInjective] = make(chan *gossipv1.ObservationRequest)
-		chainObsvReqC[vaa.ChainIDPythNet] = make(chan *gossipv1.ObservationRequest)
-	}
 
 	// Multiplex observation requests to the appropriate chain
 	go func() {
@@ -958,139 +506,10 @@ func runNode(cmd *cobra.Command, args []string) {
 			return err
 		}
 
-		if err := supervisor.Run(ctx, "ethwatch",
-			ethereum.NewEthWatcher(*ethRPC, ethContractAddr, "eth", common.ReadinessEthSyncing, vaa.ChainIDEthereum, lockC, setC, 1, chainObsvReqC[vaa.ChainIDEthereum], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-
-		if err := supervisor.Run(ctx, "bscwatch",
-			ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil, 1, chainObsvReqC[vaa.ChainIDBSC], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-
-		polygonMinConfirmations := uint64(512)
-		if *testnetMode {
-			polygonMinConfirmations = 64
-		}
-
-		if err := supervisor.Run(ctx, "polygonwatch",
-			ethereum.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil, polygonMinConfirmations, chainObsvReqC[vaa.ChainIDPolygon], *unsafeDevMode).Run); err != nil {
-			// Special case: Polygon can fork like PoW Ethereum, and it's not clear what the safe number of blocks is
-			//
-			// Hardcode the minimum number of confirmations to 512 regardless of what the smart contract specifies to protect
-			// developers from accidentally specifying an unsafe number of confirmations. We can remove this restriction as soon
-			// as specific public guidance exists for Polygon developers.
-			return err
-		}
-		if err := supervisor.Run(ctx, "avalanchewatch",
-			ethereum.NewEthWatcher(*avalancheRPC, avalancheContractAddr, "avalanche", common.ReadinessAvalancheSyncing, vaa.ChainIDAvalanche, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAvalanche], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-		if err := supervisor.Run(ctx, "oasiswatch",
-			ethereum.NewEthWatcher(*oasisRPC, oasisContractAddr, "oasis", common.ReadinessOasisSyncing, vaa.ChainIDOasis, lockC, nil, 1, chainObsvReqC[vaa.ChainIDOasis], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-		if err := supervisor.Run(ctx, "aurorawatch",
-			ethereum.NewEthWatcher(*auroraRPC, auroraContractAddr, "aurora", common.ReadinessAuroraSyncing, vaa.ChainIDAurora, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAurora], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-		if err := supervisor.Run(ctx, "fantomwatch",
-			ethereum.NewEthWatcher(*fantomRPC, fantomContractAddr, "fantom", common.ReadinessFantomSyncing, vaa.ChainIDFantom, lockC, nil, 1, chainObsvReqC[vaa.ChainIDFantom], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-		if err := supervisor.Run(ctx, "karurawatch",
-			ethereum.NewEthWatcher(*karuraRPC, karuraContractAddr, "karura", common.ReadinessKaruraSyncing, vaa.ChainIDKarura, lockC, nil, 1, chainObsvReqC[vaa.ChainIDKarura], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-		if err := supervisor.Run(ctx, "acalawatch",
-			ethereum.NewEthWatcher(*acalaRPC, acalaContractAddr, "acala", common.ReadinessAcalaSyncing, vaa.ChainIDAcala, lockC, nil, 1, chainObsvReqC[vaa.ChainIDAcala], *unsafeDevMode).Run); err != nil {
-			return err
-		}
 		if err := supervisor.Run(ctx, "klaytnwatch",
 			ethereum.NewEthWatcher(*klaytnRPC, klaytnContractAddr, "klaytn", common.ReadinessKlaytnSyncing, vaa.ChainIDKlaytn, lockC, nil, 1, chainObsvReqC[vaa.ChainIDKlaytn], *unsafeDevMode).Run); err != nil {
 			return err
 		}
-		if err := supervisor.Run(ctx, "celowatch",
-			ethereum.NewEthWatcher(*celoRPC, celoContractAddr, "celo", common.ReadinessCeloSyncing, vaa.ChainIDCelo, lockC, nil, 1, chainObsvReqC[vaa.ChainIDCelo], *unsafeDevMode).Run); err != nil {
-			return err
-		}
-
-		if *testnetMode {
-			if err := supervisor.Run(ctx, "ethropstenwatch",
-				ethereum.NewEthWatcher(*ethRopstenRPC, ethRopstenContractAddr, "ethropsten", common.ReadinessEthRopstenSyncing, vaa.ChainIDEthereumRopsten, lockC, nil, 1, chainObsvReqC[vaa.ChainIDEthereumRopsten], *unsafeDevMode).Run); err != nil {
-				return err
-			}
-			if err := supervisor.Run(ctx, "moonbeamwatch",
-				ethereum.NewEthWatcher(*moonbeamRPC, moonbeamContractAddr, "moonbeam", common.ReadinessMoonbeamSyncing, vaa.ChainIDMoonbeam, lockC, nil, 1, chainObsvReqC[vaa.ChainIDMoonbeam], *unsafeDevMode).Run); err != nil {
-				return err
-			}
-			if err := supervisor.Run(ctx, "neonwatch",
-				ethereum.NewEthWatcher(*neonRPC, neonContractAddr, "neon", common.ReadinessNeonSyncing, vaa.ChainIDNeon, lockC, nil, 32, chainObsvReqC[vaa.ChainIDNeon], *unsafeDevMode).Run); err != nil {
-				return err
-			}
-		}
-
-		if *terraWS != "" {
-			logger.Info("Starting Terra watcher")
-			if err := supervisor.Run(ctx, "terrawatch",
-				cosmwasm.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, chainObsvReqC[vaa.ChainIDTerra], common.ReadinessTerraSyncing, vaa.ChainIDTerra).Run); err != nil {
-				return err
-			}
-		}
-
-		if *terra2WS != "" {
-			logger.Info("Starting Terra 2 watcher")
-			if err := supervisor.Run(ctx, "terra2watch",
-				cosmwasm.NewWatcher(*terra2WS, *terra2LCD, *terra2Contract, lockC, chainObsvReqC[vaa.ChainIDTerra2], common.ReadinessTerra2Syncing, vaa.ChainIDTerra2).Run); err != nil {
-				return err
-			}
-		}
-
-		if *testnetMode {
-			logger.Info("Starting Injective watcher")
-			if err := supervisor.Run(ctx, "injectivewatch",
-				cosmwasm.NewWatcher(*injectiveWS, *injectiveLCD, *injectiveContract, lockC, chainObsvReqC[vaa.ChainIDInjective], common.ReadinessInjectiveSyncing, vaa.ChainIDInjective).Run); err != nil {
-				return err
-			}
-		}
-
-		if *algorandIndexerRPC != "" {
-			if err := supervisor.Run(ctx, "algorandwatch",
-				algorand.NewWatcher(*algorandIndexerRPC, *algorandIndexerToken, *algorandAlgodRPC, *algorandAlgodToken, *algorandAppID, lockC, setC, chainObsvReqC[vaa.ChainIDAlgorand]).Run); err != nil {
-				return err
-			}
-		}
-		if *nearRPC != "" {
-			if err := supervisor.Run(ctx, "nearwatch",
-				near.NewWatcher(*nearRPC, *nearContract, lockC, chainObsvReqC[vaa.ChainIDNear]).Run); err != nil {
-				return err
-			}
-		}
-
-		if *solanaWsRPC != "" {
-			if err := supervisor.Run(ctx, "solwatch-confirmed",
-				solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, nil, rpc.CommitmentConfirmed, common.ReadinessSolanaSyncing, vaa.ChainIDSolana).Run); err != nil {
-				return err
-			}
-
-			if err := supervisor.Run(ctx, "solwatch-finalized",
-				solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, chainObsvReqC[vaa.ChainIDSolana], rpc.CommitmentFinalized, common.ReadinessSolanaSyncing, vaa.ChainIDSolana).Run); err != nil {
-				return err
-			}
-		}
-
-		if *pythnetWsRPC != "" {
-			if err := supervisor.Run(ctx, "pythwatch-confirmed",
-				solana.NewSolanaWatcher(*pythnetWsRPC, *pythnetRPC, pythnetAddress, lockC, nil, rpc.CommitmentConfirmed, common.ReadinessPythNetSyncing, vaa.ChainIDPythNet).Run); err != nil {
-				return err
-			}
-
-			if err := supervisor.Run(ctx, "pythwatch-finalized",
-				solana.NewSolanaWatcher(*pythnetWsRPC, *pythnetRPC, pythnetAddress, lockC, chainObsvReqC[vaa.ChainIDPythNet], rpc.CommitmentFinalized, common.ReadinessPythNetSyncing, vaa.ChainIDPythNet).Run); err != nil {
-				return err
-			}
-		}
-
 		if gov != nil {
 			err := gov.Run(ctx)
 			if err != nil {
@@ -1110,7 +529,6 @@ func runNode(cmd *cobra.Command, args []string) {
 			gst,
 			*unsafeDevMode,
 			*devNumGuardians,
-			*ethRPC,
 			attestationEvents,
 			notifier,
 			gov,

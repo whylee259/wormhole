@@ -10,8 +10,6 @@ import (
 	"flag"
 	"log"
 
-	"github.com/certusone/wormhole/node/pkg/celo"
-	"github.com/certusone/wormhole/node/pkg/common"
 	"github.com/certusone/wormhole/node/pkg/ethereum"
 	"github.com/certusone/wormhole/node/pkg/vaa"
 	ethCommon "github.com/ethereum/go-ethereum/common"
@@ -34,12 +32,7 @@ func main() {
 
 	ctx := context.Background()
 
-	var ethIntf common.Ethish
-	if chainID == vaa.ChainIDCelo {
-		ethIntf = &celo.CeloImpl{NetworkName: "celo"}
-	} else {
-		ethIntf = &ethereum.EthImpl{NetworkName: "eth"}
-	}
+	ethIntf := &ethereum.EthImpl{NetworkName: "eth"}
 
 	err := ethIntf.DialContext(ctx, *flagEthRPC)
 	if err != nil {
